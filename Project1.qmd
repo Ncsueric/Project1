@@ -4,5 +4,64 @@ format: html
 editor: visual
 ---
 
-## 
-test1
+## Data Processing
+
+### First Steps
+
+```{r}
+library(tidyverse)
+library(dplyr)
+```
+
+```{r}
+EDU <- read_csv("https://www4.stat.ncsu.edu/~online/datasets/EDU01a.csv")|>
+  select(Area_name,STCOU,ends_with("D"))|>
+  rename(area_name=Area_name)|>
+  pivot_longer(
+    cols =3:12,   
+    names_to = "EDU",            
+    values_to = "enrollment value "           
+  )|>
+  mutate(year = ifelse(as.numeric(substr(EDU,8,9)) < 50, paste0("20", substr(EDU,8,9)), paste0("19", substr(EDU,8,9))),
+         measurement=substr(EDU,1,7) )
+
+EDU_county <- EDU |>
+  filter(grepl(",", area_name))|>
+  mutate(state=substr(area_name,nchar(area_name)-1,nchar(area_name)))
+
+class(EDU_county) <- c("county", class(EDU_county))
+
+division1 <- c("Connecticut", "Maine" ,"Massachusetts" , "New Hampshire" , "Rhode Island", "Vermont")
+division2 <- c("New Jersey", "New York","Pennsylvania")
+division3 <- c("Illinois", "Indiana", "Michigan", "Ohio","Wisconsin")
+division4 <- c("Iowa", "Kansas", "Minnesota", "Missouri", "Nebraska", "North Dakota", "South Dakota")
+division5 <- c("Delaware", "Florida", "Georgia", "Maryland", "North Carolina", "South Carolina", "Virginia", "DISTRICT OF COLUMBIA","West Virginia")
+
+division6 <- c("Alabama", "Kentucky", "Mississippi","Tennessee")
+division7 <- c("Arkansas", "Louisiana", "Oklahoma", "Texas" )
+division8 <- c("Arizona", "Colorado", "Idaho", "Montana", "Nevada", "New Mexico", "Utah","Wyoming")
+division9 <- c("Alaska", "California", "Hawaii", "Oregon", "Washington")
+
+
+EDU_noncounty <- EDU |>
+  filter(!grepl(",", area_name))|>
+  mutate(
+    division = ifelse(toupper(area_name) %in% toupper(division1), "New England",
+                     ifelse(toupper(area_name) %in% toupper(division2), "Middle Atlantic",
+                          ifelse(toupper(area_name) %in% toupper(division3), "East North Central",
+                                ifelse(toupper(area_name) %in% toupper(division4), "West North Central",
+                                      ifelse(toupper(area_name) %in% toupper(division5), "South Atlantic",
+                                           ifelse(toupper(area_name) %in% toupper(division6), "East South Central",
+                                                 ifelse(toupper(area_name) %in% toupper(division7), "West South Central",
+                                                       ifelse(toupper(area_name) %in% toupper(division8), "Mountain",
+                                                             ifelse(toupper(area_name) %in% toupper(division9), "Pacific",
+                                                                   "ERROR")))))))))
+  )
+  
+
+class(EDU_noncounty) <- c("state", class(EDU_noncounty))
+
+EDU_county
+EDU_noncounty
+
+```
