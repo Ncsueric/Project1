@@ -11,6 +11,7 @@ editor: visual
 ```{r}
 library(tidyverse)
 library(dplyr)
+library(ggplot2)
 ```
 
 ```{r}
@@ -20,7 +21,7 @@ EDU <- read_csv("https://www4.stat.ncsu.edu/~online/datasets/EDU01a.csv")|>
   pivot_longer(
     cols =3:12,   
     names_to = "EDU",            
-    values_to = "enrollment value "           
+    values_to = "enrollment_value"           
   )|>
   mutate(year = ifelse(as.numeric(substr(EDU,8,9)) < 50, paste0("20", substr(EDU,8,9)), paste0("19", substr(EDU,8,9))),
          measurement=substr(EDU,1,7) )
@@ -61,7 +62,37 @@ EDU_noncounty <- EDU |>
 
 class(EDU_noncounty) <- c("state", class(EDU_noncounty))
 
-EDU_county
-EDU_noncounty
 
 ```
+
+
+
+## Writing a Generic Function for Summarizing
+### First steps 
+```{r}
+plot.state <- function(df,enrollment_value){
+
+  
+  # Filter out the ERROR setting of Division
+  df1 <- df %>%
+    filter(division != "ERROR") %>%
+    mutate(divisionf = as.factor(division))
+  
+  # Calculate the mean of the specified variable for each combination of year and division
+  summary_df <- df1 %>%
+    group_by(year, divisionf) %>%
+    mutate(mean_value = mean(enrollment_value, na.rm = TRUE)) %>%
+    ungroup()
+  
+  # Plotting the results
+  ggplot(data = summary_df, aes(x = year, y = mean_value, fill =divisionf)) +
+    geom_bar(stat = "identity",position = "dodge")  
+}
+
+
+plot.state(EDU_noncounty)
+
+
+
+```
+
