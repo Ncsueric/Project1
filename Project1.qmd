@@ -66,33 +66,64 @@ class(EDU_noncounty) <- c("state", class(EDU_noncounty))
 ```
 
 
+### Requirements 
+
+Alexander: please input your codes here. Thanks!
+
+
+
+
 
 ## Writing a Generic Function for Summarizing
 ### First steps 
 ```{r}
-plot.state <- function(df,enrollment_value){
+plot.state <- function(df){
 
-  
-  # Filter out the ERROR setting of Division
-  df1 <- df %>%
-    filter(division != "ERROR") %>%
+  df1 <- df |>
+    filter(division != "ERROR") |>
     mutate(divisionf = as.factor(division))
-  
-  # Calculate the mean of the specified variable for each combination of year and division
-  summary_df <- df1 %>%
-    group_by(year, divisionf) %>%
-    mutate(mean_value = mean(enrollment_value, na.rm = TRUE)) %>%
+ 
+  summary_df <- df1 |>
+    group_by(year, divisionf) |>
+    mutate(mean_value = mean(enrollment_value, na.rm = TRUE)) |>
     ungroup()
-  
-  # Plotting the results
+ 
   ggplot(data = summary_df, aes(x = year, y = mean_value, fill =divisionf)) +
     geom_bar(stat = "identity",position = "dodge")  
 }
 
-
 plot.state(EDU_noncounty)
+```
 
+```{r}
+
+plot.county <- function(df,state_re,m){
+
+  
+ df1 <- EDU_county|>
+    filter(state ==state_re)|>
+    group_by(area_name)|>
+    mutate(mean_value = mean(enrollment_value, na.rm = TRUE))|>
+    arrange(mean_value)|>
+    select(area_name,mean_value)|>
+    distinct()|>
+    ungroup()
+
+ df1f<-df1 |>
+    slice_head(n = m)
+    
+  df1l<-df1 |>
+    slice_tail(n = m) 
+  
+  df2<-bind_rows(df1f,df1l)
+
+   ggplot(data = df2, aes(x = area_name, y = mean_value)) +
+    geom_bar(stat = "identity",position = "dodge") 
+}
+
+
+
+plot.county(EDU_county,"AL",2)
 
 
 ```
-
