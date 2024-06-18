@@ -1,3 +1,4 @@
+
 ---
 title: "Data Processing and Visualization of Educational Enrollment Statistics"
 format: html
@@ -16,8 +17,25 @@ This code block reads in the first CSV file, selects only the relevant columns (
 library(tidyverse)
 library(dplyr)
 library(ggplot2)
+library(httr)
+# Read csv or handle error when www4.stat.ncsu.edu is down.
+read_csv_safe <- function(url, max_retries = 3, timeout = 20) {
+  for (i in seq_len(max_retries)) {
+    response <- tryCatch({
+      GET(url, timeout(timeout))
+    }, error = function(e) {
+      NULL
+    })
+    
+    if (!is.null(response) && http_status(response)$category == "Success") {
+      return(read_csv(content(response, "text"), show_col_types = FALSE))
+    } else if (i == max_retries) {
+      stop("Failed to download data after ", max_retries, " attempts")
+    }
+  }
+}
 
-EDU <- read_csv("https://www4.stat.ncsu.edu/~online/datasets/EDU01a.csv", show_col_types = FALSE) |>
+EDU <- read_csv_safe("https://www4.stat.ncsu.edu/~online/datasets/EDU01a.csv") |>
   select(Area_name, STCOU, ends_with("D")) |>
   rename(area_name = Area_name) |>
   pivot_longer(
@@ -29,8 +47,8 @@ EDU <- read_csv("https://www4.stat.ncsu.edu/~online/datasets/EDU01a.csv", show_c
          measurement = substr(EDU, 1, 7))
 ```
 
-
 This block filters the data to include only county-level data (rows where `area_name` contains a comma), extracts the state abbreviation, and assigns a new class `county` to the dataset.
+
 ```{r}
 EDU_county <- EDU |>
   filter(grepl(",", area_name)) |>
@@ -74,13 +92,10 @@ EDU_noncounty <- EDU |>
 class(EDU_noncounty) <- c("state", class(EDU_noncounty))
 ```
 
-
-
 ## Writing a Generic Function for Summarizing
 
+We define two custom plot functions, one for state-level data and one for county-level data. The `plot.state` function takes a state-level dataframe, filters out rows with "ERROR" in the division, calculates the mean enrollment value for each division and year, and creates a bar plot using `ggplot2`.
 
-We define two custom plot functions, one for state-level data and one for county-level data. 
-The `plot.state` function takes a state-level dataframe, filters out rows with "ERROR" in the division, calculates the mean enrollment value for each division and year, and creates a bar plot using `ggplot2`.
 ```{r}
 plot.state <- function(df){
   df1 <- df |>
@@ -129,16 +144,13 @@ plot.county <- function(df, state_re = "NC", m = 5){
 plot.county(EDU_county, "AL", 2)
 ```
 
-
-
 ## Data Processing Function
 
-We define functions to automate the steps for reading and processing the datasets.
-These functions read and process the data, splitting it into county and non-county data frames, and assigning appropriate classes.
+We define functions to automate the steps for reading and processing the datasets. These functions read and process the data, splitting it into county and non-county data frames, and assigning appropriate classes.
 
 ```{r}
 process_data <- function(url, value_col = "enrollment_value"){
-  data <- read_csv(url, show_col_types = FALSE) |>
+  data <- read_csv_safe(url) |>
     select(Area_name, STCOU, ends_with("D")) |>
     rename(area_name = Area_name) |>
     pivot_longer(
@@ -173,19 +185,15 @@ process_noncounty <- function(df){
 process_county <- function(df){
   df <- df |>
     filter(grepl(",", area_name)) |>
-    mutate(state = substr(area_name, nchar(area_name)
-
- - 1, nchar(area_name)))
+    mutate(state = substr(area_name, nchar(area_name) - 1, nchar(area_name)))
   class(df) <- c("county", class(df))
   return(df)
 }
 ```
 
-
-
 ## Wrapper Function
 
-A wrapper function combines the previous functions to process and combine datasets.
+A wrapper function combines the previous functions to process and combine datasets.The `wrapper_function` processes a given URL, while `combine_data` combines the results from multiple calls to the wrapper function.
 
 ```{r}
 wrapper_function <- function(url, value_col = "enrollment_value"){
@@ -202,7 +210,7 @@ combine_data <- function(data1, data2){
 }
 ```
 
-The `wrapper_function` processes a given URL, while `combine_data` combines the results from multiple calls to the wrapper function.
+
 
 ## Putting It All Together
 
@@ -222,8 +230,6 @@ plot.county(combined_data$county, "SC", 7)
 plot.county(combined_data$county)
 plot.county(combined_data$county, "PA", 8)
 ```
-
-
 
 ## Additional Data Processing
 
@@ -247,5 +253,4 @@ plot.county(combined_data2$county, "CA", 15)
 plot.county(combined_data2$county, "TX", 4)
 plot.county(combined_data2$county)
 plot.county(combined_data2$county, "NY", 10)
-
 ```
